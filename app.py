@@ -5,7 +5,6 @@ Offer捕手 · 学生求职匹配智能体
 import streamlit as st
 import sys
 import os
-import random
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -508,10 +507,13 @@ with st.sidebar:
     st.markdown("## 📥 输入中心")
 
     st.markdown("### 🚀 快速演示")
-    if st.button("随机填入示例材料", use_container_width=True):
-        sample_case = random.choice(SAMPLE_CASES)
-        st.session_state.jd_input = sample_case["jd"]
-        st.session_state.sidebar_company = sample_case["company"]
+    if st.button("换一套示例材料", use_container_width=True):
+        next_sample_index = (st.session_state.get("sample_case_index", -1) + 1) % len(SAMPLE_CASES)
+        st.session_state.sample_case_index = next_sample_index
+        sample_case = SAMPLE_CASES[next_sample_index]
+        st.session_state.sample_refresh_id = st.session_state.get("sample_refresh_id", 0) + 1
+        st.session_state.sample_jd_text = sample_case["jd"]
+        st.session_state.sample_company_name = sample_case["company"]
         st.session_state.sample_resume_text = sample_case["resume"]
         st.session_state.sample_case_name = sample_case["name"]
         st.session_state.pop("radar_data", None)
@@ -525,14 +527,15 @@ with st.sidebar:
         if st.button("清空示例材料", use_container_width=True):
             st.session_state.sample_resume_text = ""
             st.session_state.sample_case_name = ""
-            st.session_state.jd_input = ""
-            st.session_state.sidebar_company = ""
+            st.session_state.sample_jd_text = ""
+            st.session_state.sample_company_name = ""
+            st.session_state.sample_refresh_id = st.session_state.get("sample_refresh_id", 0) + 1
             st.session_state.pop("radar_data", None)
             st.rerun()
 
     with st.expander("3分钟演示路线"):
         st.markdown("""
-        1. 点击 **随机填入示例材料**
+        1. 点击 **换一套示例材料**
         2. 用 **情报官** 解码JD，展示关键结论
         3. 用 **简历军师** 做能力建模和雷达图
         4. 用 **一键重写** 展示可直接采纳的改写
@@ -582,11 +585,13 @@ with st.sidebar:
 
     # Step2: 粘贴JD
     st.markdown("### 2️⃣ 粘贴岗位JD")
+    sample_refresh_id = st.session_state.get("sample_refresh_id", 0)
     jd_text = st.text_area(
         "岗位JD",
+        value=st.session_state.get("sample_jd_text", ""),
         placeholder="如：OPPO AI算法工程师\n\n岗位职责：\n1. 负责计算机视觉算法研发...\n\n岗位要求：\n1. 硕士及以上学历...",
         height=200,
-        key="jd_input",
+        key=f"jd_input_{sample_refresh_id}",
         label_visibility="collapsed"
     )
 
@@ -596,8 +601,9 @@ with st.sidebar:
     st.markdown("### 3️⃣ 公司名称（可选）")
     company_name = st.text_input(
         "公司名称",
+        value=st.session_state.get("sample_company_name", ""),
         placeholder="如：OPPO",
-        key="sidebar_company",
+        key=f"sidebar_company_{sample_refresh_id}",
         label_visibility="collapsed"
     )
 
@@ -640,14 +646,14 @@ if not jd_ready and not resume_ready:
     <div class="welcome-panel">
         <h3>欢迎来到 Offer捕手</h3>
         <p>我是一个帮你从「海投迷茫」到「精准命中心仪Offer」的 AI 求职参谋。</p>
-        <p><strong>最快体验方式：</strong> 点击左侧「随机填入示例材料」，即可直接跑完整流程。</p>
+        <p><strong>最快体验方式：</strong> 点击左侧「换一套示例材料」，即可直接跑完整流程。</p>
         <p><strong>真实使用方式：</strong> 上传简历 → 粘贴目标JD → 按下面路径逐步分析。</p>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("""
     <div class="metric-strip">
-        <div class="metric-tile"><strong>3套</strong><span>随机演示样例</span></div>
+        <div class="metric-tile"><strong>3套</strong><span>可切换演示样例</span></div>
         <div class="metric-tile"><strong>5维</strong><span>能力差距诊断</span></div>
         <div class="metric-tile"><strong>1条链路</strong><span>岗位 → 简历 → 面试</span></div>
     </div>
