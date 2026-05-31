@@ -13,6 +13,29 @@ from utils.llm_client import LLMEngine
 from utils.resume_parser import anonymize_resume_text, parse_resume
 from modules import intel_officer, resume_advisor, interview_coach, job_hunter
 
+
+def reset_resume_dependent_state(clear_sample_context: bool = False):
+    """新简历进入时，清空旧分析和旧岗位分页状态。"""
+    for key in [
+        "ai_job_recommendations",
+        "ai_job_error",
+        "job_query",
+        "job_page",
+        "job_page_input",
+        "job_search_keyword",
+        "job_recommend_source",
+        "radar_data",
+    ]:
+        st.session_state.pop(key, None)
+    st.session_state["module_select"] = "🧭 岗位猎手"
+    if clear_sample_context:
+        st.session_state.sample_jd_text = ""
+        st.session_state.sample_company_name = ""
+        st.session_state.sample_resume_text = ""
+        st.session_state.sample_case_name = ""
+        st.session_state.sample_refresh_id = st.session_state.get("sample_refresh_id", 0) + 1
+
+
 SAMPLE_CASES = [
     {
         "name": "数据科学 / AI产品策略",
@@ -520,12 +543,12 @@ with st.sidebar:
         next_sample_index = (st.session_state.get("sample_case_index", -1) + 1) % len(SAMPLE_CASES)
         st.session_state.sample_case_index = next_sample_index
         sample_case = SAMPLE_CASES[next_sample_index]
+        reset_resume_dependent_state()
         st.session_state.sample_refresh_id = st.session_state.get("sample_refresh_id", 0) + 1
         st.session_state.sample_jd_text = sample_case["jd"]
         st.session_state.sample_company_name = sample_case["company"]
         st.session_state.sample_resume_text = sample_case["resume"]
         st.session_state.sample_case_name = sample_case["name"]
-        st.session_state.pop("radar_data", None)
         st.rerun()
     if st.session_state.get("sample_resume_text"):
         st.markdown(
@@ -534,12 +557,12 @@ with st.sidebar:
         )
         st.caption("上传真实简历后会自动替换示例。")
         if st.button("清空示例材料", use_container_width=True):
+            reset_resume_dependent_state()
             st.session_state.sample_resume_text = ""
             st.session_state.sample_case_name = ""
             st.session_state.sample_jd_text = ""
             st.session_state.sample_company_name = ""
             st.session_state.sample_refresh_id = st.session_state.get("sample_refresh_id", 0) + 1
-            st.session_state.pop("radar_data", None)
             st.rerun()
 
     with st.expander("3分钟演示路线"):
@@ -579,6 +602,12 @@ with st.sidebar:
                 if anonymize_resume
                 else parsed_resume_text
             )
+            resume_signature = f"{filename}:{len(resume_text)}:{hash(resume_text)}:{anonymize_resume}"
+            if st.session_state.get("active_resume_signature") != resume_signature:
+                st.session_state["active_resume_signature"] = resume_signature
+                reset_resume_dependent_state(clear_sample_context=True)
+                st.toast("已载入新简历，已回到岗位猎手首页。")
+                st.rerun()
             st.success(f"✅ 已解析：{filename}")
             with st.expander("📄 预览简历内容"):
                 st.text(resume_text[:2000] + ("..." if len(resume_text) > 2000 else ""))
