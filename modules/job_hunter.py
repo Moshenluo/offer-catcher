@@ -234,6 +234,10 @@ def _parse_ai_recommendations(raw: str):
     items = data.get("recommendations", [])
     if not isinstance(items, list) or not items:
         raise ValueError("AI 推荐结果为空")
+    for item in items:
+        if isinstance(item, dict):
+            item["fit_score"] = _normalize_match_score(item.get("fit_score"))
+    items.sort(key=lambda item: item.get("fit_score", 60) if isinstance(item, dict) else 0, reverse=True)
     return items[:7]
 
 
@@ -347,7 +351,7 @@ def _sort_posts_by_match(posts, source_key):
 def _render_match_summary(match):
     score = match.get("score", 60)
     decision = match.get("decision", "可以尝试")
-    color = "#12b886" if score >= 80 else "#f59f00" if score >= 65 else "#f03e3e"
+    color = _score_color(score)
     st.markdown(f"""
     <div style="border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:12px; margin:10px 0; background:#fbfffd;">
         <div style="display:flex; align-items:center; gap:12px; justify-content:space-between;">
@@ -375,10 +379,25 @@ def _render_ai_recommendations(recommendations):
         for col, rec in zip(cols, recommendations[row_start:row_start + 2]):
             title = rec.get("title") or rec.get("keyword") or "推荐岗位"
             keyword = rec.get("keyword") or title
+            score = _normalize_match_score(rec.get("fit_score"))
+            color = _score_color(score)
             with col:
                 with st.container(border=True):
                     st.markdown(f"#### {title}")
-                    st.markdown(f"**匹配度**：{rec.get('match_level', '待确认')}")
+                    st.markdown(f"""
+                    <div style="border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:12px; margin:8px 0 12px; background:#fbfffd;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                            <div>
+                                <div style="font-size:13px; color:#64748b;">方向匹配度</div>
+                                <div style="font-size:32px; font-weight:800; color:{color}; line-height:1;">{score}<span style="font-size:14px;">/100</span></div>
+                            </div>
+                            <div style="padding:6px 10px; border-radius:999px; background:{color}18; color:{color}; font-weight:700;">{rec.get('match_level', '待确认')}</div>
+                        </div>
+                        <div style="height:8px; background:#e9ecef; border-radius:999px; margin-top:10px;">
+                            <div style="width:{score}%; height:8px; background:{color}; border-radius:999px;"></div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     st.markdown(f"**推荐理由**：{rec.get('why', '证据不足，需要补充')}")
                     st.markdown(f"**岗位简介**：{rec.get('job_intro', '岗位职责需结合具体 JD 确认。')}")
                     tasks = rec.get("typical_tasks") or []
@@ -392,6 +411,10 @@ def _render_ai_recommendations(recommendations):
                     for link_col, (label, url) in zip(link_cols, list(links.items())[:3]):
                         with link_col:
                             st.link_button(label, url, use_container_width=True)
+
+
+def _score_color(score):
+    return "#12b886" if score >= 80 else "#f59f00" if score >= 65 else "#f03e3e"
 
 
 def _render_rule_recommendations(recommendations):

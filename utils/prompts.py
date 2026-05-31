@@ -39,6 +39,7 @@ JSON 格式：
     {
       "title": "岗位方向名称，不要包含招聘/招募等动词",
       "keyword": "用于搜索的短关键词，优先2-6个汉字或常见英文缩写，不要写完整岗位名",
+      "fit_score": 86,
       "match_level": "高/中/探索",
       "why": "基于简历证据说明为什么推荐",
       "job_intro": "这个岗位通常做什么",
@@ -49,7 +50,7 @@ JSON 格式：
   ]
 }
 
-请返回 4-7 个推荐，按匹配度排序。search_keywords 应该适合招聘网站检索，例如“数据分析”“AI产品”“推荐算法”“NLP”，不要使用过窄的完整岗位名。"""
+请返回 4-7 个推荐，按 fit_score 从高到低排序。fit_score 为 0-100 的整数，要体现区分度，不要全部给高分。search_keywords 应该适合招聘网站检索，例如“数据分析”“AI产品”“推荐算法”“NLP”，不要使用过窄的完整岗位名。"""
 
 
 def job_recommend_prompt(resume_text: str, jd_text: str = "") -> str:
