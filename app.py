@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from utils.llm_client import LLMEngine
 from utils.resume_parser import anonymize_resume_text, parse_resume
-from modules import intel_officer, resume_advisor, interview_coach
+from modules import intel_officer, resume_advisor, interview_coach, job_hunter
 
 SAMPLE_CASES = [
     {
@@ -360,6 +360,11 @@ st.markdown("""
             radial-gradient(circle at 92% 18%, rgba(78, 205, 196, 0.28), transparent 32%),
             linear-gradient(135deg, #eef8fb 0%, #f8fbff 56%, #eef4ff 100%);
     }
+    .module-jobs {
+        background:
+            radial-gradient(circle at 92% 18%, rgba(45, 212, 191, 0.22), transparent 32%),
+            linear-gradient(135deg, #f1fff8 0%, #f5fbff 62%, #eef4ff 100%);
+    }
     .module-resume {
         background:
             radial-gradient(circle at 88% 20%, rgba(255, 193, 7, 0.26), transparent 30%),
@@ -386,6 +391,10 @@ st.markdown("""
     .note-intel {
         border-left-color: #168aad;
         background: #f0fbff;
+    }
+    .note-jobs {
+        border-left-color: #12b886;
+        background: #f0fff8;
     }
     .note-resume {
         border-left-color: #7a9a01;
@@ -647,7 +656,7 @@ if not jd_ready and not resume_ready:
         <h3>欢迎来到 Offer捕手</h3>
         <p>我是一个帮你从「海投迷茫」到「精准命中心仪Offer」的 AI 求职参谋。</p>
         <p><strong>最快体验方式：</strong> 点击左侧「换一套示例材料」，即可直接跑完整流程。</p>
-        <p><strong>真实使用方式：</strong> 上传简历 → 粘贴目标JD → 按下面路径逐步分析。</p>
+        <p><strong>真实使用方式：</strong> 上传简历 → 推荐岗位 → 粘贴目标JD → 按下面路径逐步分析。</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -655,37 +664,47 @@ if not jd_ready and not resume_ready:
     <div class="metric-strip">
         <div class="metric-tile"><strong>3套</strong><span>可切换演示样例</span></div>
         <div class="metric-tile"><strong>5维</strong><span>能力差距诊断</span></div>
-        <div class="metric-tile"><strong>1条链路</strong><span>岗位 → 简历 → 面试</span></div>
+        <div class="metric-tile"><strong>1条链路</strong><span>岗位推荐 → 简历 → 面试</span></div>
     </div>
     """, unsafe_allow_html=True)
 
     # 功能卡片展示
-    col_a, col_b, col_c = st.columns(3)
+    col_a, col_b, col_c, col_d = st.columns(4)
     with col_a:
         st.markdown("""
         <div class="step-card">
-        <span class="step-label">STEP 1 · 读懂岗位</span>
+        <span class="step-label">STEP 0 · 找岗位</span>
         <div class="step-icon">01</div>
-        <h3>情报官</h3>
-        <p><strong>先判断岗位真正要什么。</strong><br>
-        解码JD潜台词，模拟HR初筛视角，找出简历里最该被看见的证据。</p>
+        <h3>岗位猎手</h3>
+        <p><strong>先找到值得投的岗位。</strong><br>
+        根据简历推荐方向，搜集腾讯最新岗位，并提供多平台检索入口。</p>
         </div>
         """, unsafe_allow_html=True)
     with col_b:
         st.markdown("""
         <div class="step-card">
-        <span class="step-label">STEP 2 · 诊断差距</span>
+        <span class="step-label">STEP 1 · 读懂岗位</span>
         <div class="step-icon">02</div>
-        <h3>简历军师</h3>
-        <p><strong>再决定简历怎么改。</strong><br>
-        五维能力建模，生成差距雷达图，并把经历改写成更贴合JD的表达。</p>
+        <h3>情报官</h3>
+        <p><strong>先判断岗位真正要什么。</strong><br>
+        解码JD潜台词，模拟HR初筛视角，找出简历里最该被看见的证据。</p>
         </div>
         """, unsafe_allow_html=True)
     with col_c:
         st.markdown("""
         <div class="step-card">
-        <span class="step-label">STEP 3 · 准备面试</span>
+        <span class="step-label">STEP 2 · 诊断差距</span>
         <div class="step-icon">03</div>
+        <h3>简历军师</h3>
+        <p><strong>再决定简历怎么改。</strong><br>
+        五维能力建模，生成差距雷达图，并把经历改写成更贴合JD的表达。</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_d:
+        st.markdown("""
+        <div class="step-card">
+        <span class="step-label">STEP 3 · 准备面试</span>
+        <div class="step-icon">04</div>
         <h3>面试教练</h3>
         <p><strong>最后把经历讲清楚。</strong><br>
         预测高频题，生成STAR回答框架，并对模拟回答给出改进反馈。</p>
@@ -695,62 +714,67 @@ if not jd_ready and not resume_ready:
 # ════════════════════════════════════════════════════════════
 # 功能模块路由
 # ════════════════════════════════════════════════════════════
-if jd_ready:
+if jd_ready or resume_ready:
     st.divider()
-
-    # 初始化LLM引擎
-    @st.cache_resource
-    def init_engine():
-        return LLMEngine()
-
-    try:
-        engine = init_engine()
-    except Exception as e:
-        st.error(f"""
-        ⚠️ AI引擎初始化失败，请检查API配置
-
-        **如果你在 Streamlit Cloud 部署：**
-        请进入应用设置 `Settings` → `Secrets`，粘贴以下内容后保存并重新部署：
-
-        ```toml
-        LLM_API_KEY = "你的API密钥"
-        LLM_BASE_URL = "https://api.deepseek.com"
-        LLM_MODEL = "deepseek-chat"
-        ```
-
-        **如果你在本地运行：**
-        请在项目目录下创建 `.streamlit/secrets.toml`，内容格式同上。
-
-        **低成本API推荐：**
-        - DeepSeek：价格极低，中文效果优秀
-        - Groq：提供免费额度，速度较快
-        - 阿里百炼：通义千问，支持中文
-
-        错误信息：{str(e)}
-        """)
-        st.stop()
 
     # 模块选择
     if jd_ready and resume_ready:
-        st.success("材料已就绪。推荐体验路径：情报官解码JD → 简历军师诊断差距 → 面试教练准备回答。")
+        st.success("材料已就绪。推荐体验路径：岗位猎手搜集职位 → 情报官解码JD → 简历军师诊断差距 → 面试教练准备回答。")
     elif jd_ready:
-        st.info("已识别到JD。可以先用「情报官」解码岗位；上传简历后可解锁完整闭环。")
+        st.info("已识别到JD。可以先用「情报官」解码岗位；上传简历后可解锁岗位推荐与完整闭环。")
+    elif resume_ready:
+        st.info("已识别到简历。建议先用「岗位猎手」搜集合适岗位，再把目标JD粘贴到左侧。")
 
     module = st.pills(
         "选择一个模块开始分析：",
-        ["🔍 情报官", "✍️ 简历军师", "🎤 面试教练"],
-        default="🔍 情报官",
+        ["🧭 岗位猎手", "🔍 情报官", "✍️ 简历军师", "🎤 面试教练"],
+        default="🧭 岗位猎手",
         key="module_select"
     )
 
     st.divider()
 
     # 路由到对应模块（修复：函数参数用逗号分隔）
-    if module == "🔍 情报官":
-        intel_officer.render(engine, jd_text, resume_text, company_name or "")
+    if module == "🧭 岗位猎手":
+        job_hunter.render(resume_text, jd_text)
 
-    elif module == "✍️ 简历军师":
-        resume_advisor.render(engine, jd_text, resume_text)
+    else:
+        @st.cache_resource
+        def init_engine():
+            return LLMEngine()
 
-    elif module == "🎤 面试教练":
-        interview_coach.render(engine, jd_text, resume_text, company_name or "")
+        try:
+            engine = init_engine()
+        except Exception as e:
+            st.error(f"""
+            ⚠️ AI引擎初始化失败，请检查API配置
+
+            **如果你在 Streamlit Cloud 部署：**
+            请进入应用设置 `Settings` → `Secrets`，粘贴以下内容后保存并重新部署：
+
+            ```toml
+            LLM_API_KEY = "你的API密钥"
+            LLM_BASE_URL = "https://api.deepseek.com"
+            LLM_MODEL = "deepseek-v4-flash"
+            ```
+
+            **如果你在本地运行：**
+            请在项目目录下创建 `.streamlit/secrets.toml`，内容格式同上。
+
+            **低成本API推荐：**
+            - DeepSeek：价格极低，中文效果优秀
+            - Groq：提供免费额度，速度较快
+            - 阿里百炼：通义千问，支持中文
+
+            错误信息：{str(e)}
+            """)
+            st.stop()
+
+        if module == "🔍 情报官":
+            intel_officer.render(engine, jd_text, resume_text, company_name or "")
+
+        elif module == "✍️ 简历军师":
+            resume_advisor.render(engine, jd_text, resume_text)
+
+        elif module == "🎤 面试教练":
+            interview_coach.render(engine, jd_text, resume_text, company_name or "")
