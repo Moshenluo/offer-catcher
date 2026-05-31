@@ -99,22 +99,13 @@ def render(resume_text: str, jd_text: str = ""):
             st.session_state.get("ai_job_recommendations") or [],
             fallback_keywords,
         )
-        selected_keyword = st.selectbox(
-            "推荐关键词",
-            keyword_options,
-            index=0,
-            key="job_keyword_choice",
-            help="优先使用短关键词搜索，避免过窄的岗位名搜不到结果。你也可以在下方手动微调。",
-        )
         default_keyword = _default_search_keyword(keyword_options)
-        current_keyword = st.session_state.get("job_search_keyword", default_keyword)
-        if selected_keyword and selected_keyword != current_keyword and st.button("使用该推荐关键词", use_container_width=True):
-            st.session_state["job_search_keyword"] = selected_keyword
-            st.session_state.pop("job_query", None)
-            st.session_state.pop("job_match_results", None)
-            st.session_state.pop("job_match_source", None)
-            st.rerun()
-        keyword = st.text_input("岗位关键词", value=default_keyword, key="job_search_keyword")
+        keyword = st.text_input(
+            "岗位关键词",
+            value=default_keyword,
+            key="job_search_keyword",
+            help="默认使用 AI 推荐出的第一个短关键词；你也可以手动改成更宽或更具体的方向。",
+        )
         page_size = st.slider("展示岗位数量", 3, 12, 8, key="job_search_size")
 
         if st.button("搜集最新岗位", key="btn_fetch_jobs", use_container_width=True):
