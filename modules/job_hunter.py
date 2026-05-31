@@ -106,6 +106,8 @@ def render(resume_text: str, jd_text: str = ""):
             else:
                 st.session_state["job_query"] = keyword.strip()
                 st.session_state["job_page"] = 1
+                st.session_state.pop("job_match_results", None)
+                st.session_state.pop("job_match_source", None)
 
         if st.session_state.get("job_query"):
             query = st.session_state["job_query"]
@@ -159,7 +161,9 @@ def render(resume_text: str, jd_text: str = ""):
                             st.session_state["job_page"] = current_page + 1
                             st.rerun()
 
+                    page_match_source = _match_source_key(query, current_page, result["posts"])
                     for offset, post in enumerate(result["posts"], start_no):
+                        match = _match_for_post(post.post_id, page_match_source)
                         with st.container(border=True):
                             st.markdown(f"#### {offset}. {post.title}")
                             c1, c2, c3 = st.columns(3)
@@ -169,9 +173,26 @@ def render(resume_text: str, jd_text: str = ""):
                             st.markdown(f"**部门/事业群**：{post.business_group}")
                             st.markdown(f"**岗位类别**：{post.category}")
                             st.markdown(f"**职位速览**：{post.description}")
+                            if match:
+                                _render_match_summary(match)
                             st.link_button("打开腾讯招聘详情", post.detail_url, use_container_width=True)
 
                     st.caption(f"接口来源：{result['source_url']}")
+
+                    if resume_text:
+                        if st.button("AI 评估当前页岗位匹配度", key="btn_rank_current_jobs", use_container_width=True):
+                            with st.spinner("正在根据你的简历给当前页岗位排序..."):
+                                try:
+                                    engine = _init_job_engine()
+                                    job_payload = [_post_to_payload(post) for post in result["posts"]]
+                                    raw = engine.rank_job_matches(resume_text, query, job_payload)
+                                    st.session_state["job_match_source"] = page_match_source
+                                    st.session_state["job_match_results"] = _parse_match_results(raw)
+                                    st.rerun()
+                                except Exception as exc:
+                                    st.error(f"岗位匹配评估失败：{exc}")
+                    else:
+                        st.info("上传简历后，可以让 AI 对当前页岗位做匹配度排序。")
 
         st.markdown("#### 更多公司官方入口")
         st.caption("这些入口会带着当前关键词跳转到各公司官网，由原站展示最新岗位。")
@@ -201,6 +222,35 @@ def _parse_ai_recommendations(raw: str):
     return items[:7]
 
 
+def _parse_match_results(raw: str):
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if not match:
+        raise ValueError("AI 未返回可解析的 JSON")
+    data = json.loads(match.group(0))
+    items = data.get("matches", [])
+    if not isinstance(items, list):
+        raise ValueError("AI 匹配结果格式异常")
+    normalized = {}
+    for item in items:
+        if not isinstance(item, dict) or not item.get("post_id"):
+            continue
+        normalized[str(item["post_id"])] = {
+            "score": _normalize_match_score(item.get("score")),
+            "decision": str(item.get("decision") or "可以尝试"),
+            "reason": str(item.get("reason") or "需要结合岗位详情进一步判断。"),
+            "resume_angle": str(item.get("resume_angle") or "突出与岗位职责最相关的项目证据。"),
+            "risk": str(item.get("risk") or "证据缺口待确认。"),
+        }
+    return normalized
+
+
+def _normalize_match_score(value):
+    try:
+        return max(0, min(100, int(round(float(value)))))
+    except (TypeError, ValueError):
+        return 60
+
+
 def _first_recommendation_keyword(recommendations):
     if not recommendations:
         return ""
@@ -219,6 +269,40 @@ def _default_search_keyword(fallback_keywords):
     if st.session_state.get("job_search_keyword"):
         return st.session_state["job_search_keyword"]
     return fallback_keywords[0] if fallback_keywords else "数据分析"
+
+
+def _post_to_payload(post):
+    return {
+        "post_id": post.post_id,
+        "title": post.title,
+        "company": post.company,
+        "location": post.location,
+        "business_group": post.business_group,
+        "category": post.category,
+        "description": post.description,
+    }
+
+
+def _match_source_key(query, page, posts):
+    post_ids = ",".join(post.post_id for post in posts)
+    return f"{query}:{page}:{post_ids}"
+
+
+def _match_for_post(post_id, source_key):
+    if st.session_state.get("job_match_source") != source_key:
+        return None
+    return (st.session_state.get("job_match_results") or {}).get(str(post_id))
+
+
+def _render_match_summary(match):
+    score = match.get("score", 60)
+    decision = match.get("decision", "可以尝试")
+    st.markdown(
+        f"**AI匹配判断**：{score}/100 · **{decision}**  \n"
+        f"**匹配理由**：{match.get('reason')}  \n"
+        f"**简历主打角度**：{match.get('resume_angle')}  \n"
+        f"**风险提醒**：{match.get('risk')}"
+    )
 
 
 def _render_ai_recommendations(recommendations):

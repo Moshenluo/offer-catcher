@@ -114,3 +114,13 @@ class LLMEngine:
             temperature=0.35,
             max_tokens=2200,
         )
+
+    def rank_job_matches(self, resume_text: str, keyword: str, jobs: list) -> str:
+        """岗位猎手 - 对当前页岗位做简历匹配排序"""
+        from utils.prompts import JOB_MATCH_SYSTEM, job_match_prompt
+        return self.chat(
+            JOB_MATCH_SYSTEM,
+            job_match_prompt(resume_text, keyword, jobs),
+            temperature=0.2,
+            max_tokens=2400,
+        )

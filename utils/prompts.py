@@ -62,6 +62,50 @@ def job_recommend_prompt(resume_text: str, jd_text: str = "") -> str:
 
 请只返回合法 JSON。"""
 
+
+JOB_MATCH_SYSTEM = """你是一位互联网校招岗位匹配顾问，需要根据学生简历，对一组岗位做投递优先级排序。
+
+要求：
+- 只依据简历和岗位信息判断，不要编造经历。
+- 分数要有区分度，不要所有岗位都给高分。
+- 输出必须是合法 JSON，不要加 Markdown 代码块。
+- decision 只能是：优先投递 / 可以尝试 / 暂缓投递。
+
+JSON 格式：
+{
+  "matches": [
+    {
+      "post_id": "岗位ID",
+      "score": 86,
+      "decision": "优先投递",
+      "reason": "为什么匹配或不匹配",
+      "resume_angle": "投这个岗位时简历最该突出什么",
+      "risk": "最大风险或证据缺口"
+    }
+  ]
+}
+"""
+
+
+def job_match_prompt(resume_text: str, keyword: str, jobs: list) -> str:
+    return f"""请根据学生简历，对当前页岗位做匹配度排序。
+
+【搜索关键词】
+{keyword}
+
+【学生简历】
+{resume_text}
+
+【当前页岗位】
+{json_dumps(jobs)}
+
+请只返回合法 JSON。"""
+
+
+def json_dumps(data) -> str:
+    import json
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
 # ═══════════════════════════════════════════════════════════════
 # 模块一：情报官
 # ═══════════════════════════════════════════════════════════════
