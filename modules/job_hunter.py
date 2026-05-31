@@ -66,7 +66,7 @@ def render(resume_text: str, jd_text: str = ""):
                         ai_items = _parse_ai_recommendations(raw)
                         st.session_state["ai_job_recommendations"] = ai_items
                         st.session_state.pop("ai_job_error", None)
-                        first_keyword = _first_recommendation_keyword(ai_items)
+                        first_keyword = _recommended_search_keywords(ai_items, fallback_keywords)[0]
                         if first_keyword:
                             st.session_state["job_search_keyword"] = first_keyword
                             st.session_state["job_page"] = 1
@@ -96,8 +96,25 @@ def render(resume_text: str, jd_text: str = ""):
             unsafe_allow_html=True
         )
 
-        default_keyword = _default_search_keyword(fallback_keywords)
+        keyword_options = _recommended_search_keywords(
+            st.session_state.get("ai_job_recommendations") or [],
+            fallback_keywords,
+        )
+        selected_keyword = st.selectbox(
+            "推荐关键词",
+            keyword_options,
+            index=0,
+            key="job_keyword_choice",
+            help="优先使用短关键词搜索，避免过窄的岗位名搜不到结果。你也可以在下方手动微调。",
+        )
+        default_keyword = _default_search_keyword(keyword_options)
         keyword = st.text_input("岗位关键词", value=default_keyword, key="job_search_keyword")
+        if selected_keyword and selected_keyword != keyword and st.button("使用该推荐关键词", use_container_width=True):
+            st.session_state["job_search_keyword"] = selected_keyword
+            st.session_state.pop("job_query", None)
+            st.session_state.pop("job_match_results", None)
+            st.session_state.pop("job_match_source", None)
+            st.rerun()
         page_size = st.slider("展示岗位数量", 3, 12, 8, key="job_search_size")
 
         if st.button("搜集最新岗位", key="btn_fetch_jobs", use_container_width=True):
@@ -251,24 +268,46 @@ def _normalize_match_score(value):
         return 60
 
 
-def _first_recommendation_keyword(recommendations):
-    if not recommendations:
+def _recommended_search_keywords(recommendations, fallback_keywords):
+    candidates = []
+    for rec in recommendations:
+        candidates.extend(rec.get("search_keywords") or [])
+        candidates.append(rec.get("keyword"))
+        candidates.append(rec.get("title"))
+    candidates.extend(fallback_keywords)
+
+    keywords = []
+    for item in candidates:
+        cleaned = _normalize_search_keyword(item)
+        if cleaned and cleaned not in keywords:
+            keywords.append(cleaned)
+    return keywords[:8] or ["数据分析"]
+
+
+def _normalize_search_keyword(value):
+    if not value:
         return ""
-    first = recommendations[0]
-    search_terms = first.get("search_keywords") or []
-    if search_terms:
-        return str(search_terms[0]).strip()
-    return str(first.get("keyword") or first.get("title") or "").strip()
+    text = str(value).strip()
+    for suffix in ["实习生", "实习", "校招", "岗位", "工程师", "经理"]:
+        text = text.replace(suffix, "")
+    text = re.sub(r"[，,、/|]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) > 10:
+        compact_patterns = [
+            "数据分析", "AI产品", "推荐算法", "推荐系统", "产品运营",
+            "NLP", "自然语言处理", "机器学习", "算法", "用户研究",
+            "商业分析", "游戏数据", "增长运营",
+        ]
+        for pattern in compact_patterns:
+            if pattern.lower() in text.lower():
+                return pattern
+    return text[:12]
 
 
-def _default_search_keyword(fallback_keywords):
-    ai_recommendations = st.session_state.get("ai_job_recommendations") or []
-    first_keyword = _first_recommendation_keyword(ai_recommendations)
-    if first_keyword:
-        return first_keyword
+def _default_search_keyword(keyword_options):
     if st.session_state.get("job_search_keyword"):
         return st.session_state["job_search_keyword"]
-    return fallback_keywords[0] if fallback_keywords else "数据分析"
+    return keyword_options[0] if keyword_options else "数据分析"
 
 
 def _post_to_payload(post):
@@ -297,12 +336,26 @@ def _match_for_post(post_id, source_key):
 def _render_match_summary(match):
     score = match.get("score", 60)
     decision = match.get("decision", "可以尝试")
-    st.markdown(
-        f"**AI匹配判断**：{score}/100 · **{decision}**  \n"
-        f"**匹配理由**：{match.get('reason')}  \n"
-        f"**简历主打角度**：{match.get('resume_angle')}  \n"
-        f"**风险提醒**：{match.get('risk')}"
-    )
+    color = "#12b886" if score >= 80 else "#f59f00" if score >= 65 else "#f03e3e"
+    st.markdown(f"""
+    <div style="border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:12px; margin:10px 0; background:#fbfffd;">
+        <div style="display:flex; align-items:center; gap:12px; justify-content:space-between;">
+            <div>
+                <div style="font-size:13px; color:#475569;">AI匹配分</div>
+                <div style="font-size:30px; font-weight:800; color:{color}; line-height:1;">{score}<span style="font-size:14px;">/100</span></div>
+            </div>
+            <div style="padding:6px 10px; border-radius:999px; background:{color}18; color:{color}; font-weight:700;">{decision}</div>
+        </div>
+        <div style="height:8px; background:#e9ecef; border-radius:999px; margin:10px 0 8px;">
+            <div style="width:{score}%; height:8px; background:{color}; border-radius:999px;"></div>
+        </div>
+        <div style="font-size:14px; line-height:1.65;">
+            <strong>匹配理由：</strong>{match.get('reason')}<br>
+            <strong>简历主打角度：</strong>{match.get('resume_angle')}<br>
+            <strong>风险提醒：</strong>{match.get('risk')}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def _render_ai_recommendations(recommendations):
