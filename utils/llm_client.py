@@ -104,3 +104,13 @@ class LLMEngine:
         from utils.prompts import MOCK_INTERVIEW_SYSTEM, mock_interview_prompt
         return self.chat(MOCK_INTERVIEW_SYSTEM,
                         mock_interview_prompt(question, user_answer, resume_text, jd_text))
+
+    def recommend_jobs(self, resume_text: str, jd_text: str = "") -> str:
+        """岗位猎手 - 基于简历生成细分岗位推荐"""
+        from utils.prompts import JOB_RECOMMEND_SYSTEM, job_recommend_prompt
+        return self.chat(
+            JOB_RECOMMEND_SYSTEM,
+            job_recommend_prompt(resume_text, jd_text),
+            temperature=0.35,
+            max_tokens=2200,
+        )

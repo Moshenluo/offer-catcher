@@ -112,7 +112,7 @@ def infer_job_recommendations(resume_text: str, jd_text: str = "", limit: int = 
     return recommendations
 
 
-def fetch_tencent_jobs(keyword: str, page_size: int = 8) -> Dict[str, object]:
+def fetch_tencent_jobs(keyword: str, page_size: int = 8, page_index: int = 1) -> Dict[str, object]:
     """调用腾讯招聘公开岗位查询接口。"""
     params = {
         "timestamp": str(int(time.time() * 1000)),
@@ -124,7 +124,7 @@ def fetch_tencent_jobs(keyword: str, page_size: int = 8) -> Dict[str, object]:
         "parentCategoryId": "",
         "attrId": "",
         "keyword": keyword,
-        "pageIndex": "1",
+        "pageIndex": str(page_index),
         "pageSize": str(page_size),
         "language": "zh-cn",
         "area": "cn",
@@ -158,6 +158,8 @@ def fetch_tencent_jobs(keyword: str, page_size: int = 8) -> Dict[str, object]:
         ))
     return {
         "count": data.get("Count", 0),
+        "page_index": page_index,
+        "page_size": page_size,
         "posts": posts,
         "source_url": response.url,
     }
@@ -178,9 +180,9 @@ def build_company_search_links(keyword: str) -> Dict[str, str]:
     encoded = quote_plus(keyword)
     return {
         "腾讯": f"https://careers.tencent.com/search.html?keyword={encoded}",
-        "字节跳动": f"https://jobs.bytedance.com/zh/position?keywords={encoded}",
-        "阿里巴巴": f"https://talent.alibaba.com/campus/search?keyword={encoded}",
-        "美团": f"https://zhaopin.meituan.com/web/position?keyword={encoded}",
+        "字节跳动": f"https://jobs.bytedance.com/campus/position?keywords={encoded}",
+        "阿里巴巴": f"https://talent.alibaba.com/?keyword={encoded}",
+        "美团": f"https://zhaopin.meituan.com/web/campus?keyword={encoded}",
         "百度": f"https://talent.baidu.com/jobs/list?search={encoded}",
         "网易": f"https://hr.163.com/job-list.html?keyword={encoded}",
     }
