@@ -644,7 +644,7 @@ st.markdown("""
     <div class="brand-mark"></div>
     <div>
         <h1 class="brand-title">Offer捕手<span> · 求职智脑</span></h1>
-        <p class="brand-subtitle">三位一体求职赋能 | 情报官 · 简历军师 · 面试教练</p>
+        <p class="brand-subtitle">四步求职赋能 | 岗位猎手 · 情报官 · 简历军师 · 面试教练</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -677,7 +677,7 @@ if not jd_ready and not resume_ready:
         <div class="step-icon">01</div>
         <h3>岗位猎手</h3>
         <p><strong>先找到值得投的岗位。</strong><br>
-        根据简历推荐方向，搜集腾讯最新岗位，并提供多平台检索入口。</p>
+        根据简历推荐方向，分页搜集最新岗位，并提供多公司、多平台检索入口。</p>
         </div>
         """, unsafe_allow_html=True)
     with col_b:
