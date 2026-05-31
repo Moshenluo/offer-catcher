@@ -18,7 +18,6 @@ from utils.job_search import (
 )
 
 
-@st.cache_resource
 def _init_job_engine():
     return LLMEngine()
 
@@ -187,6 +186,8 @@ def render(resume_text: str, jd_text: str = ""):
                             with st.spinner("正在根据你的简历给当前页岗位排序..."):
                                 try:
                                     engine = _init_job_engine()
+                                    if not hasattr(engine, "rank_job_matches"):
+                                        raise RuntimeError("AI引擎版本仍是旧缓存，请在 Streamlit Cloud 点击 Reboot app 后重试。")
                                     job_payload = [_post_to_payload(post) for post in result["posts"]]
                                     raw = engine.rank_job_matches(resume_text, query, job_payload)
                                     st.session_state["job_match_source"] = page_match_source
