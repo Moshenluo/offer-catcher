@@ -179,24 +179,9 @@ def render(resume_text: str, jd_text: str = ""):
                             st.rerun()
 
                     page_match_source = _match_source_key(query, current_page, result["posts"])
-                    for offset, post in enumerate(result["posts"], start_no):
-                        match = _match_for_post(post.post_id, page_match_source)
-                        with st.container(border=True):
-                            st.markdown(f"#### {offset}. {post.title}")
-                            c1, c2, c3 = st.columns(3)
-                            c1.markdown(f"**公司/来源**：{post.company} · {post.source}")
-                            c2.markdown(f"**地点**：{post.location}")
-                            c3.markdown(f"**更新**：{post.update_time}")
-                            st.markdown(f"**部门/事业群**：{post.business_group}")
-                            st.markdown(f"**岗位类别**：{post.category}")
-                            st.markdown(f"**职位速览**：{post.description}")
-                            if match:
-                                _render_match_summary(match)
-                            st.link_button("打开腾讯招聘详情", post.detail_url, use_container_width=True)
-
-                    st.caption(f"接口来源：{result['source_url']}")
-
                     if resume_text:
+                        st.markdown("#### AI 岗位匹配排序")
+                        st.caption("点击后会根据你的简历给当前页岗位打分，并把高匹配岗位排在前面。")
                         if st.button("AI 评估当前页岗位匹配度", key="btn_rank_current_jobs", use_container_width=True):
                             with st.spinner("正在根据你的简历给当前页岗位排序..."):
                                 try:
@@ -210,6 +195,26 @@ def render(resume_text: str, jd_text: str = ""):
                                     st.error(f"岗位匹配评估失败：{exc}")
                     else:
                         st.info("上传简历后，可以让 AI 对当前页岗位做匹配度排序。")
+
+                    display_posts = _sort_posts_by_match(result["posts"], page_match_source)
+                    for offset, post in enumerate(display_posts, start_no):
+                        match = _match_for_post(post.post_id, page_match_source)
+                        with st.container(border=True):
+                            st.markdown(f"#### {offset}. {post.title}")
+                            if match:
+                                _render_match_summary(match)
+                            else:
+                                st.caption("还未评估匹配度。点击上方「AI 评估当前页岗位匹配度」后，这里会显示匹配分。")
+                            c1, c2, c3 = st.columns(3)
+                            c1.markdown(f"**公司/来源**：{post.company} · {post.source}")
+                            c2.markdown(f"**地点**：{post.location}")
+                            c3.markdown(f"**更新**：{post.update_time}")
+                            st.markdown(f"**部门/事业群**：{post.business_group}")
+                            st.markdown(f"**岗位类别**：{post.category}")
+                            st.markdown(f"**职位速览**：{post.description}")
+                            st.link_button("打开腾讯招聘详情", post.detail_url, use_container_width=True)
+
+                    st.caption(f"接口来源：{result['source_url']}")
 
         st.markdown("#### 更多公司官方入口")
         st.caption("这些入口会带着当前关键词跳转到各公司官网，由原站展示最新岗位。")
@@ -288,7 +293,9 @@ def _normalize_search_keyword(value):
     if not value:
         return ""
     text = str(value).strip()
-    for suffix in ["实习生", "实习", "校招", "岗位", "工程师", "经理"]:
+    for noise in ["招聘", "急招", "诚聘", "寻找", "招募"]:
+        text = text.replace(noise, "")
+    for suffix in ["实习生", "实习", "校招", "岗位", "职位", "工程师", "经理", "专员"]:
         text = text.replace(suffix, "")
     text = re.sub(r"[，,、/|]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
@@ -296,7 +303,7 @@ def _normalize_search_keyword(value):
         compact_patterns = [
             "数据分析", "AI产品", "推荐算法", "推荐系统", "产品运营",
             "NLP", "自然语言处理", "机器学习", "算法", "用户研究",
-            "商业分析", "游戏数据", "增长运营",
+            "商业分析", "数据科学", "游戏数据", "增长运营",
         ]
         for pattern in compact_patterns:
             if pattern.lower() in text.lower():
@@ -331,6 +338,17 @@ def _match_for_post(post_id, source_key):
     if st.session_state.get("job_match_source") != source_key:
         return None
     return (st.session_state.get("job_match_results") or {}).get(str(post_id))
+
+
+def _sort_posts_by_match(posts, source_key):
+    if st.session_state.get("job_match_source") != source_key:
+        return posts
+    matches = st.session_state.get("job_match_results") or {}
+    return sorted(
+        posts,
+        key=lambda post: matches.get(str(post.post_id), {}).get("score", -1),
+        reverse=True,
+    )
 
 
 def _render_match_summary(match):
