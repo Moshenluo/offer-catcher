@@ -5,6 +5,7 @@ Offer捕手 · 学生求职匹配智能体
 import streamlit as st
 import sys
 import os
+import random
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -13,7 +14,11 @@ from utils.llm_client import LLMEngine
 from utils.resume_parser import anonymize_resume_text, parse_resume
 from modules import intel_officer, resume_advisor, interview_coach
 
-SAMPLE_JD = """腾讯校园招聘 - 数据科学/AI产品策略实习生
+SAMPLE_CASES = [
+    {
+        "name": "数据科学 / AI产品策略",
+        "company": "腾讯",
+        "jd": """腾讯校园招聘 - 数据科学/AI产品策略实习生
 
 岗位职责：
 1. 支持招聘业务的数据分析，构建候选人与岗位的匹配评估指标。
@@ -24,9 +29,8 @@ SAMPLE_JD = """腾讯校园招聘 - 数据科学/AI产品策略实习生
 1. 数据科学、计算机、统计、信息管理等相关专业，本科及以上学历。
 2. 熟悉Python、SQL、机器学习基础方法，能够完成数据清洗、建模和可视化。
 3. 有NLP、推荐系统、AIGC产品、招聘/教育场景项目经验优先。
-4. 具备良好的结构化表达、跨团队沟通和快速学习能力。"""
-
-SAMPLE_RESUME = """姓名：示例同学
+4. 具备良好的结构化表达、跨团队沟通和快速学习能力。""",
+        "resume": """姓名：示例同学
 教育背景：数据科学硕士在读，主修机器学习、数据挖掘、自然语言处理和商业分析。
 
 项目经历：
@@ -37,7 +41,65 @@ SAMPLE_RESUME = """姓名：示例同学
 实习经历：
 数据分析实习生，负责整理业务数据、制作周报看板、分析用户转化漏斗，并向产品和运营同学同步发现。
 
-技能：Python、SQL、Pandas、Scikit-learn、Plotly、Streamlit、机器学习、NLP基础、数据可视化。"""
+技能：Python、SQL、Pandas、Scikit-learn、Plotly、Streamlit、机器学习、NLP基础、数据可视化。""",
+    },
+    {
+        "name": "AI算法工程 / NLP方向",
+        "company": "腾讯",
+        "jd": """腾讯校园招聘 - AI算法工程师（NLP方向）
+
+岗位职责：
+1. 参与搜索、推荐、对话系统等场景中的文本理解和语义匹配算法研发。
+2. 负责数据清洗、特征构建、模型训练、离线评估和线上效果分析。
+3. 跟进大语言模型、RAG、Embedding等技术在业务场景中的应用落地。
+
+岗位要求：
+1. 计算机、人工智能、数据科学等相关专业，硕士优先。
+2. 熟悉Python、PyTorch或TensorFlow，理解Transformer、BERT、向量检索等基础方法。
+3. 有NLP、推荐系统、信息检索、LLM应用项目经验优先。
+4. 能清晰表达模型思路、实验设计和指标变化原因。""",
+        "resume": """姓名：示例同学
+教育背景：人工智能硕士在读，课程包括深度学习、自然语言处理、信息检索和机器学习系统。
+
+项目经历：
+1. 简历-JD语义匹配项目：使用Sentence-BERT生成文本向量，计算简历与岗位JD的语义相似度，并输出能力缺口标签。
+2. RAG问答系统：构建文档切分、Embedding召回和LLM生成流程，支持基于企业知识库的问答检索。
+3. 文本分类实验：基于BERT微调中文评论分类模型，比较不同学习率、batch size和文本截断策略对F1的影响。
+
+实习经历：
+算法实习生，参与模型评估数据整理、错误样本分析和实验记录沉淀，协助输出迭代报告。
+
+技能：Python、PyTorch、Transformers、FAISS、Scikit-learn、NLP、Embedding、Git。""",
+    },
+    {
+        "name": "产品运营 / 数据分析",
+        "company": "腾讯",
+        "jd": """腾讯校园招聘 - 产品运营数据分析实习生
+
+岗位职责：
+1. 跟踪校园招聘活动、内容触达和用户转化数据，发现增长机会。
+2. 设计数据看板和分析报告，支持运营策略调整和活动复盘。
+3. 与产品、运营、HR团队协作，推动AI工具在学生求职服务中的应用。
+
+岗位要求：
+1. 统计、商科、数据科学、信息管理等相关专业。
+2. 熟悉Excel、SQL、Python或BI工具，能独立完成数据清洗和可视化。
+3. 有校园活动、用户增长、内容运营或数据分析项目经验优先。
+4. 具备用户洞察、结构化表达和跨团队沟通能力。""",
+        "resume": """姓名：示例同学
+教育背景：数据科学硕士在读，主修机器学习、数据挖掘、自然语言处理和商业分析。
+
+项目经历：
+1. 校园活动增长分析：整理活动报名、签到和反馈数据，分析不同渠道的转化差异，并提出内容投放建议。
+2. 用户分层看板：用Python和Plotly制作交互式看板，展示学生年级、专业、兴趣标签和活动参与情况。
+3. 求职内容运营复盘：分析公众号推文阅读、点击和收藏数据，总结高互动内容主题。
+
+实习经历：
+运营数据实习生，负责制作周报、整理用户反馈、跟进活动数据，并向产品和运营同学同步发现。
+
+技能：Python、SQL、Excel、Pandas、Plotly、Streamlit、用户分析、数据可视化、运营复盘。""",
+    },
+]
 
 # ════════════════════════════════════════════════════════════
 # 页面配置
@@ -203,6 +265,50 @@ st.markdown("""
         color: #17456b;
         line-height: 1.75;
         margin: 8px 0;
+    }
+    .metric-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: -0.2rem 0 1.6rem;
+    }
+    .metric-tile {
+        border-radius: 12px;
+        padding: 14px 16px;
+        background: #ffffff;
+        border: 1px solid rgba(102,126,234,0.14);
+        box-shadow: 0 12px 30px rgba(37, 50, 75, 0.06);
+    }
+    .metric-tile strong {
+        display: block;
+        color: #25324b;
+        font-size: 1.35rem;
+        line-height: 1.1;
+    }
+    .metric-tile span {
+        display: block;
+        margin-top: 5px;
+        color: #667085;
+        font-size: 0.86rem;
+        font-weight: 650;
+    }
+    .demo-badge {
+        border-radius: 10px;
+        padding: 9px 11px;
+        margin: 8px 0 10px;
+        background: rgba(102,126,234,0.10);
+        color: #25324b;
+        font-size: 0.86rem;
+        font-weight: 750;
+        border: 1px solid rgba(102,126,234,0.16);
+    }
+    @media (max-width: 760px) {
+        .brand-lockup {
+            align-items: flex-start;
+        }
+        .metric-strip {
+            grid-template-columns: 1fr;
+        }
     }
 
     /* 模块差异化头部 */
@@ -402,16 +508,23 @@ with st.sidebar:
     st.markdown("## 📥 输入中心")
 
     st.markdown("### 🚀 快速演示")
-    if st.button("一键填入示例材料", use_container_width=True):
-        st.session_state.jd_input = SAMPLE_JD
-        st.session_state.sidebar_company = "腾讯"
-        st.session_state.sample_resume_text = SAMPLE_RESUME
+    if st.button("随机填入示例材料", use_container_width=True):
+        sample_case = random.choice(SAMPLE_CASES)
+        st.session_state.jd_input = sample_case["jd"]
+        st.session_state.sidebar_company = sample_case["company"]
+        st.session_state.sample_resume_text = sample_case["resume"]
+        st.session_state.sample_case_name = sample_case["name"]
         st.session_state.pop("radar_data", None)
         st.rerun()
     if st.session_state.get("sample_resume_text"):
-        st.caption("当前使用示例简历。上传真实简历后会自动替换示例。")
+        st.markdown(
+            f'<div class="demo-badge">当前示例：{st.session_state.get("sample_case_name", "随机求职样例")}</div>',
+            unsafe_allow_html=True
+        )
+        st.caption("上传真实简历后会自动替换示例。")
         if st.button("清空示例材料", use_container_width=True):
             st.session_state.sample_resume_text = ""
+            st.session_state.sample_case_name = ""
             st.session_state.jd_input = ""
             st.session_state.sidebar_company = ""
             st.session_state.pop("radar_data", None)
@@ -419,7 +532,7 @@ with st.sidebar:
 
     with st.expander("3分钟演示路线"):
         st.markdown("""
-        1. 点击 **一键填入示例材料**
+        1. 点击 **随机填入示例材料**
         2. 用 **情报官** 解码JD，展示关键结论
         3. 用 **简历军师** 做能力建模和雷达图
         4. 用 **一键重写** 展示可直接采纳的改写
@@ -527,8 +640,16 @@ if not jd_ready and not resume_ready:
     <div class="welcome-panel">
         <h3>欢迎来到 Offer捕手</h3>
         <p>我是一个帮你从「海投迷茫」到「精准命中心仪Offer」的 AI 求职参谋。</p>
-        <p><strong>最快体验方式：</strong> 点击左侧「一键填入示例材料」，即可直接跑完整流程。</p>
+        <p><strong>最快体验方式：</strong> 点击左侧「随机填入示例材料」，即可直接跑完整流程。</p>
         <p><strong>真实使用方式：</strong> 上传简历 → 粘贴目标JD → 按下面路径逐步分析。</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="metric-strip">
+        <div class="metric-tile"><strong>3套</strong><span>随机演示样例</span></div>
+        <div class="metric-tile"><strong>5维</strong><span>能力差距诊断</span></div>
+        <div class="metric-tile"><strong>1条链路</strong><span>岗位 → 简历 → 面试</span></div>
     </div>
     """, unsafe_allow_html=True)
 
