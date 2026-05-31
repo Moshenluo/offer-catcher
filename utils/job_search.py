@@ -142,7 +142,7 @@ def fetch_tencent_jobs(keyword: str, page_size: int = 8, page_index: int = 1) ->
 
     data = payload.get("Data", {})
     posts = []
-    for item in data.get("Posts", []):
+    for item in data.get("Posts") or []:
         post_id = str(item.get("PostId") or "")
         posts.append(JobPost(
             company="腾讯",

@@ -25,6 +25,12 @@ def _init_job_engine():
 
 def render(resume_text: str, jd_text: str = ""):
     """渲染岗位猎手模块UI"""
+    source_signature = str(hash((resume_text, jd_text)))
+    if st.session_state.get("job_recommend_source") != source_signature:
+        st.session_state["job_recommend_source"] = source_signature
+        st.session_state.pop("ai_job_recommendations", None)
+        st.session_state.pop("ai_job_error", None)
+
     st.markdown("""
     <div class="module-hero module-jobs">
         <span class="eyebrow">STEP 0 · 先找到值得投的岗位</span>
@@ -40,8 +46,8 @@ def render(resume_text: str, jd_text: str = ""):
 
     tab1, tab2 = st.tabs(["🎯 智能推荐", "🔎 最新岗位搜集"])
 
-    keywords = infer_job_keywords(resume_text, jd_text)
-    recommendations = infer_job_recommendations(resume_text, jd_text)
+    fallback_keywords = infer_job_keywords(resume_text, jd_text)
+    fallback_recommendations = infer_job_recommendations(resume_text, jd_text)
 
     with tab1:
         st.markdown("### 🎯 推荐求职方向")
@@ -57,7 +63,13 @@ def render(resume_text: str, jd_text: str = ""):
                     try:
                         engine = _init_job_engine()
                         raw = engine.recommend_jobs(resume_text, jd_text)
-                        st.session_state["ai_job_recommendations"] = _parse_ai_recommendations(raw)
+                        ai_items = _parse_ai_recommendations(raw)
+                        st.session_state["ai_job_recommendations"] = ai_items
+                        st.session_state.pop("ai_job_error", None)
+                        first_keyword = _first_recommendation_keyword(ai_items)
+                        if first_keyword:
+                            st.session_state["job_search_keyword"] = first_keyword
+                            st.session_state["job_page"] = 1
                     except Exception as exc:
                         st.session_state["ai_job_error"] = str(exc)
 
@@ -68,7 +80,9 @@ def render(resume_text: str, jd_text: str = ""):
             else:
                 if st.session_state.get("ai_job_error"):
                     st.warning(f"AI 推荐暂不可用，已展示本地备用推荐。原因：{st.session_state['ai_job_error']}")
-                _render_rule_recommendations(recommendations)
+                    _render_rule_recommendations(fallback_recommendations)
+                else:
+                    st.info("上传简历后，点击上方按钮才会开始分析岗位方向；这里不会在未确认前自动生成推荐。")
         else:
             st.warning("请先上传简历，或点击左侧「换一套示例材料」。")
 
@@ -78,11 +92,11 @@ def render(resume_text: str, jd_text: str = ""):
         st.markdown("### 🔎 最新岗位搜集")
         st.markdown(
             '<div class="module-note note-jobs"><strong>数据来源：</strong>'
-            '可实时展示腾讯招聘公开接口返回的岗位；同时提供字节、阿里、美团、百度、网易等官方入口和招聘平台入口，岗位实时性以原站为准。</div>',
+            '当前可分页实时展示的是腾讯招聘公开接口；字节、阿里、美团、百度、网易等放在官方入口区，点击后在原站查看最新岗位。</div>',
             unsafe_allow_html=True
         )
 
-        default_keyword = keywords[0] if keywords else "数据分析"
+        default_keyword = _default_search_keyword(fallback_keywords)
         keyword = st.text_input("岗位关键词", value=default_keyword, key="job_search_keyword")
         page_size = st.slider("展示岗位数量", 3, 12, 8, key="job_search_size")
 
@@ -111,50 +125,56 @@ def render(resume_text: str, jd_text: str = ""):
                 st.session_state["job_page"] = current_page
                 start_no = (current_page - 1) * page_size + 1
                 end_no = start_no + len(result["posts"]) - 1
+                range_text = f"{start_no}-{end_no} 条" if result["posts"] else "暂无结果"
 
                 st.success(
-                    f"已搜集到 {total} 条「{query}」相关岗位，"
-                    f"当前展示第 {current_page}/{total_pages} 页（{start_no}-{end_no} 条）。"
+                    f"腾讯招聘已搜集到 {total} 条「{query}」相关岗位，"
+                    f"当前展示第 {current_page}/{total_pages} 页（{range_text}）。"
                     f"更新时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}"
                 )
 
-                nav_left, nav_mid, nav_right = st.columns([1, 2, 1])
-                with nav_left:
-                    if st.button("上一页", disabled=current_page <= 1, use_container_width=True):
-                        st.session_state["job_page"] = current_page - 1
-                        st.rerun()
-                with nav_mid:
-                    selected_page = st.number_input(
-                        "跳转页码",
-                        min_value=1,
-                        max_value=total_pages,
-                        value=current_page,
-                        step=1,
-                        key="job_page_input",
-                    )
-                    if int(selected_page) != current_page:
-                        st.session_state["job_page"] = int(selected_page)
-                        st.rerun()
-                with nav_right:
-                    if st.button("下一页", disabled=current_page >= total_pages, use_container_width=True):
-                        st.session_state["job_page"] = current_page + 1
-                        st.rerun()
+                if not result["posts"]:
+                    st.warning("当前关键词没有搜到腾讯岗位，建议换成更短的关键词，或点击下方公司/平台入口继续检索。")
+                    st.caption(f"接口来源：{result['source_url']}")
+                else:
+                    nav_left, nav_mid, nav_right = st.columns([1, 2, 1])
+                    with nav_left:
+                        if st.button("上一页", disabled=current_page <= 1, use_container_width=True):
+                            st.session_state["job_page"] = current_page - 1
+                            st.rerun()
+                    with nav_mid:
+                        selected_page = st.number_input(
+                            "跳转页码",
+                            min_value=1,
+                            max_value=total_pages,
+                            value=current_page,
+                            step=1,
+                            key="job_page_input",
+                        )
+                        if int(selected_page) != current_page:
+                            st.session_state["job_page"] = int(selected_page)
+                            st.rerun()
+                    with nav_right:
+                        if st.button("下一页", disabled=current_page >= total_pages, use_container_width=True):
+                            st.session_state["job_page"] = current_page + 1
+                            st.rerun()
 
-                for offset, post in enumerate(result["posts"], start_no):
-                    with st.container(border=True):
-                        st.markdown(f"#### {offset}. {post.title}")
-                        c1, c2, c3 = st.columns(3)
-                        c1.markdown(f"**公司/来源**：{post.company} · {post.source}")
-                        c2.markdown(f"**地点**：{post.location}")
-                        c3.markdown(f"**更新**：{post.update_time}")
-                        st.markdown(f"**部门/事业群**：{post.business_group}")
-                        st.markdown(f"**岗位类别**：{post.category}")
-                        st.markdown(f"**职位速览**：{post.description}")
-                        st.link_button("打开腾讯招聘详情", post.detail_url, use_container_width=True)
+                    for offset, post in enumerate(result["posts"], start_no):
+                        with st.container(border=True):
+                            st.markdown(f"#### {offset}. {post.title}")
+                            c1, c2, c3 = st.columns(3)
+                            c1.markdown(f"**公司/来源**：{post.company} · {post.source}")
+                            c2.markdown(f"**地点**：{post.location}")
+                            c3.markdown(f"**更新**：{post.update_time}")
+                            st.markdown(f"**部门/事业群**：{post.business_group}")
+                            st.markdown(f"**岗位类别**：{post.category}")
+                            st.markdown(f"**职位速览**：{post.description}")
+                            st.link_button("打开腾讯招聘详情", post.detail_url, use_container_width=True)
 
-                st.caption(f"接口来源：{result['source_url']}")
+                    st.caption(f"接口来源：{result['source_url']}")
 
         st.markdown("#### 更多公司官方入口")
+        st.caption("这些入口会带着当前关键词跳转到各公司官网，由原站展示最新岗位。")
         company_links = build_company_search_links(keyword or default_keyword)
         for row_start in range(0, len(company_links), 3):
             link_cols = st.columns(3)
@@ -179,6 +199,26 @@ def _parse_ai_recommendations(raw: str):
     if not isinstance(items, list) or not items:
         raise ValueError("AI 推荐结果为空")
     return items[:7]
+
+
+def _first_recommendation_keyword(recommendations):
+    if not recommendations:
+        return ""
+    first = recommendations[0]
+    search_terms = first.get("search_keywords") or []
+    if search_terms:
+        return str(search_terms[0]).strip()
+    return str(first.get("keyword") or first.get("title") or "").strip()
+
+
+def _default_search_keyword(fallback_keywords):
+    ai_recommendations = st.session_state.get("ai_job_recommendations") or []
+    first_keyword = _first_recommendation_keyword(ai_recommendations)
+    if first_keyword:
+        return first_keyword
+    if st.session_state.get("job_search_keyword"):
+        return st.session_state["job_search_keyword"]
+    return fallback_keywords[0] if fallback_keywords else "数据分析"
 
 
 def _render_ai_recommendations(recommendations):
