@@ -582,16 +582,21 @@ if jd_ready:
         st.error(f"""
         ⚠️ AI引擎初始化失败，请检查API配置
 
-        请在项目目录下创建 `.streamlit/secrets.toml` 文件，填入以下内容：
+        **如果你在 Streamlit Cloud 部署：**
+        请进入应用设置 `Settings` → `Secrets`，粘贴以下内容后保存并重新部署：
+
         ```toml
         LLM_API_KEY = "你的API密钥"
         LLM_BASE_URL = "https://api.deepseek.com"
         LLM_MODEL = "deepseek-chat"
         ```
 
-        **免费/低价API推荐：**
+        **如果你在本地运行：**
+        请在项目目录下创建 `.streamlit/secrets.toml`，内容格式同上。
+
+        **低成本API推荐：**
         - DeepSeek：价格极低，中文效果优秀
-        - Groq：完全免费，速度极快
+        - Groq：提供免费额度，速度较快
         - 阿里百炼：通义千问，支持中文
 
         错误信息：{str(e)}
