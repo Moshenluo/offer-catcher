@@ -2,6 +2,7 @@
 模块一：情报官 - JD深度解码 + HR视角模拟 + 公司洞察
 """
 import streamlit as st
+from utils.ui_helpers import render_copyable_ai_output
 
 
 def _show_ai_error(error: Exception):
@@ -43,7 +44,7 @@ def render(engine, jd_text: str, resume_text: str, company_name: str = ""):
             with st.spinner("正在深度解读JD..."):
                 try:
                     result = engine.analyze_jd(jd_text)
-                    st.markdown(result)
+                    render_copyable_ai_output(result, "jd_decode", "JD深度解码")
                     if resume_text:
                         st.success("下一步：切到「HR视角模拟」查看这份简历能否通过初筛，或进入「简历军师」做能力差距诊断。")
                     else:
@@ -67,7 +68,7 @@ def render(engine, jd_text: str, resume_text: str, company_name: str = ""):
                 with st.spinner("正在模拟HR筛选视角..."):
                     try:
                         result = engine.hr_perspective(jd_text, resume_text)
-                        st.markdown(result)
+                        render_copyable_ai_output(result, "hr_perspective", "HR视角模拟")
                         st.success("下一步：进入「简历军师」做能力建模，并把高风险经历改写成更贴合JD的表达。")
                     except Exception as e:
                         _show_ai_error(e)
@@ -97,7 +98,7 @@ def render(engine, jd_text: str, resume_text: str, company_name: str = ""):
                 with st.spinner(f"正在分析 {company_name} 相关信息..."):
                     try:
                         result = engine.company_insight(jd_text, company_name)
-                        st.markdown(result)
+                        render_copyable_ai_output(result, "company_insight", "公司行业情报")
                         st.success("下一步：把其中标注为「待核验」的信息补证据，再放进面试自我介绍或反问环节。")
                     except Exception as e:
                         _show_ai_error(e)

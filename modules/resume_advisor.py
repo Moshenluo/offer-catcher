@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import json
 import re
 from datetime import datetime
+from utils.ui_helpers import render_copyable_ai_output
 
 RADAR_DIMENSIONS = ["技术硬实力", "项目经验", "学历背景", "实习经历", "软技能"]
 
@@ -48,7 +49,7 @@ def render(engine, jd_text: str, resume_text: str):
                 with st.spinner("正在构建能力模型..."):
                     try:
                         result = engine.build_capability_model(jd_text, resume_text)
-                        st.markdown(result)
+                        render_copyable_ai_output(result, "capability_model", "能力建模分析")
 
                         # 尝试提取JSON雷达图数据，存储到session
                         if not _extract_radar_data(result):
@@ -118,7 +119,7 @@ def render(engine, jd_text: str, resume_text: str):
                 with st.spinner("正在针对JD优化简历..."):
                     try:
                         result = engine.rewrite_resume(jd_text, resume_text, rewrite_target)
-                        st.markdown(result)
+                        render_copyable_ai_output(result, "rewrite_resume", "优化简历")
 
                         # 导出按钮
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

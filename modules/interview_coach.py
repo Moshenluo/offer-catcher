@@ -2,6 +2,7 @@
 模块三：面试教练 - 高频题预测 + STAR答案 + 模拟面试
 """
 import streamlit as st
+from utils.ui_helpers import render_copyable_ai_output
 
 
 def _show_ai_error(error: Exception):
@@ -51,7 +52,7 @@ def render(engine, jd_text: str, resume_text: str, company_name: str = ""):
                     try:
                         resume_brief = resume_text[:800] if resume_text else "未提供简历"
                         result = engine.generate_questions(jd_text, company, resume_brief)
-                        st.markdown(result)
+                        render_copyable_ai_output(result, "interview_questions", "面试题预测")
                         st.success("下一步：挑一道最高频或最难的问题，切到「STAR模板」生成回答框架。")
                     except Exception as e:
                         _show_ai_error(e)
@@ -88,7 +89,7 @@ def render(engine, jd_text: str, resume_text: str, company_name: str = ""):
                 with st.spinner("正在基于你的经历生成STAR答案..."):
                     try:
                         result = engine.generate_star_answer(question, resume_text, jd_text)
-                        st.markdown(result)
+                        render_copyable_ai_output(result, "star_answer", "STAR回答模板")
                         st.success("下一步：把STAR模板改成自己的口语版，再切到「模拟面试」让AI面试官打分。")
                     except Exception as e:
                         _show_ai_error(e)
@@ -137,7 +138,7 @@ def render(engine, jd_text: str, resume_text: str, company_name: str = ""):
                         resume_brief = resume_text[:500] if resume_text else "未提供简历"
                         result = engine.mock_interview(mock_q, mock_a,
                                                        resume_brief, jd_text)
-                        st.markdown(result)
+                        render_copyable_ai_output(result, "mock_interview", "模拟面试反馈")
                         st.success("下一步：根据反馈重写回答，再评估一次，直到评分和表达都稳定。")
                     except Exception as e:
                         _show_ai_error(e)
