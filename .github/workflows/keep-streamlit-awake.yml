@@ -20,5 +20,10 @@ jobs:
           fi
 
           echo "Pinging $STREAMLIT_APP_URL"
-          curl --retry 3 --retry-delay 10 --max-time 60 --silent --show-error --location "$STREAMLIT_APP_URL" > /dev/null
+          status_code=$(curl --retry 3 --retry-delay 10 --max-time 60 --silent --show-error \
+            --user-agent "offer-catcher-keep-awake/1.0" \
+            --output /dev/null \
+            --write-out "%{http_code}" \
+            "$STREAMLIT_APP_URL")
+          echo "HTTP status: $status_code"
           echo "Ping completed."
