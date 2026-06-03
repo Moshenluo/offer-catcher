@@ -82,6 +82,18 @@ streamlit run app.py
 - GitHub 仓库中需要保留 `.streamlit/secrets.toml.template`，方便说明配置格式。
 - Streamlit Cloud 的主入口文件选择 `app.py`。
 
+### 定时唤醒（可选）
+
+Streamlit Community Cloud 长时间无访问会休眠。仓库已提供 GitHub Actions 定时访问工作流，每 6 小时 ping 一次应用链接。
+
+启用方式：
+1. 在 GitHub 仓库进入 `Settings` → `Secrets and variables` → `Actions`
+2. 新建 Repository secret：`STREAMLIT_APP_URL`
+3. 值填你的公网链接，例如 `https://xxx.streamlit.app`
+4. 进入 `Actions`，确认 `Keep Streamlit app awake` 工作流已启用
+
+注意：这只是降低休眠概率的折中方案，不等同于付费服务器常驻。
+
 ## 技术架构
 
 ```
